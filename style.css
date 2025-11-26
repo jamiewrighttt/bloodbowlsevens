@@ -1,0 +1,920 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.game-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+header h1 {
+    font-size: 2.5em;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    color: #ffd700;
+}
+
+.help-link {
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: #ffd700;
+    text-decoration: none;
+    font-size: 1.2em;
+    font-weight: bold;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    z-index: 100;
+}
+
+.help-link:hover {
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    text-shadow: 0 0 10px #ffd700;
+}
+
+.game-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.team-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-width: 200px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+}
+
+.team-panel-left {
+    align-items: flex-start;
+}
+
+.team-panel-right {
+    align-items: flex-end;
+}
+
+.team {
+    width: 100%;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.team-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.player-box {
+    width: 100%;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    margin-top: 10px;
+}
+
+.player-box h3 {
+    font-size: 0.9em;
+    margin-bottom: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    text-align: center;
+}
+
+.player-box-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    min-height: 30px;
+}
+
+.player-box-item {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9em;
+    border: 2px solid #000;
+    cursor: default;
+}
+
+.player-box-item.team1 {
+    background: #4a9eff;
+    color: white;
+}
+
+.player-box-item.team2 {
+    background: #ff6b6b;
+    color: white;
+}
+
+.team h2 {
+    font-size: 1.5em;
+    margin-bottom: 10px;
+}
+
+.team-1 h2 {
+    color: #4a9eff;
+}
+
+.team-2 h2 {
+    color: #ff6b6b;
+}
+
+.score {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}
+
+.turn-indicator {
+    font-weight: bold;
+    padding: 5px 10px;
+    background: rgba(255, 215, 0, 0.3);
+    border-radius: 5px;
+    display: inline-block;
+}
+
+.dice-result {
+    font-size: 2em;
+    font-weight: bold;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    border: 2px solid #fff;
+}
+
+.btn {
+    padding: 10px 20px;
+    font-size: 1em;
+    background: #4a9eff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+    width: 100%;
+}
+
+.btn:hover:not(:disabled) {
+    background: #357abd;
+}
+
+.btn:disabled {
+    background: #666;
+    cursor: not-allowed;
+}
+
+.btn-team1 {
+    background: #4a9eff;
+}
+
+.btn-team1:hover:not(:disabled) {
+    background: #357abd;
+}
+
+.btn-team2 {
+    background: #ff6b6b;
+}
+
+.btn-team2:hover:not(:disabled) {
+    background: #ee5a5a;
+}
+
+.board-container {
+    display: flex;
+    justify-content: center;
+    flex: 1;
+}
+
+.game-board {
+    display: grid;
+    grid-template-columns: repeat(20, 40px);
+    grid-template-rows: repeat(11, 40px);
+    gap: 2px;
+    background: #2d5016;
+    padding: 10px;
+    border-radius: 10px;
+    border: 3px solid #8b4513;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.cell {
+    width: 40px;
+    height: 40px;
+    background: #3a6b1f;
+    border: 1px solid #2d5016;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.cell:hover {
+    background: #4a7b2f;
+}
+
+.cell.endzone {
+    background: #5a8b3f;
+}
+
+.cell.endzone.team1 {
+    background: #4a6b9f;
+}
+
+.cell.endzone.team2 {
+    background: #9f4a6b;
+}
+
+.cell.selected {
+    background: #ffd700 !important;
+    border: 2px solid #ffaa00;
+}
+
+.cell.valid-move {
+    background: #90ee90;
+    border: 2px solid #00ff00;
+}
+
+.cell.valid-move:hover {
+    background: #7acc7a;
+}
+
+/* Block dice indicator - shows number of dice for block actions */
+.block-dice-indicator {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: bold;
+    z-index: 20;
+    pointer-events: none;
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.2s ease;
+}
+
+.block-dice-indicator.dice-good {
+    background: rgba(0, 200, 0, 0.9); /* Green */
+    color: white;
+}
+
+.block-dice-indicator.dice-bad {
+    background: rgba(200, 0, 0, 0.9); /* Red */
+    color: white;
+}
+
+.block-dice-indicator.dice-neutral {
+    background: rgba(128, 128, 128, 0.9); /* Grey */
+    color: white;
+}
+
+/* Show on hover */
+.cell.valid-move:hover .block-dice-indicator {
+    opacity: 1;
+}
+
+.cell.setup-area {
+    background: rgba(144, 238, 144, 0.3) !important;
+    border: 2px dashed rgba(144, 238, 144, 0.8) !important;
+    cursor: pointer;
+}
+
+.cell.setup-area:hover {
+    background: rgba(144, 238, 144, 0.5) !important;
+    border-color: rgba(144, 238, 144, 1) !important;
+}
+
+.cell.valid-push {
+    background: #ffd700 !important;
+    border: 3px solid #ff8c00 !important;
+    box-shadow:
+        0 0 10px rgba(255, 215, 0, 0.8),
+        inset 0 0 10px rgba(255, 140, 0, 0.5) !important;
+    cursor: pointer;
+    animation: pushPulse 1s ease-in-out infinite;
+}
+
+.cell.valid-push:hover {
+    background: #ffed4e !important;
+    border-color: #ffaa00 !important;
+    box-shadow:
+        0 0 15px rgba(255, 215, 0, 1),
+        inset 0 0 15px rgba(255, 140, 0, 0.7) !important;
+    transform: scale(1.05);
+}
+
+@keyframes pushPulse {
+    0%, 100% {
+        box-shadow:
+            0 0 10px rgba(255, 215, 0, 0.8),
+            inset 0 0 10px rgba(255, 140, 0, 0.5);
+    }
+    50% {
+        box-shadow:
+            0 0 15px rgba(255, 215, 0, 1),
+            inset 0 0 15px rgba(255, 140, 0, 0.7);
+    }
+}
+
+.cell.reachable-area {
+    border: 2px dashed rgba(144, 238, 144, 0.6);
+    box-shadow: 0 0 0 1px rgba(144, 238, 144, 0.3);
+}
+
+.cell.tackle-zone {
+    background: rgba(255, 100, 100, 0.4) !important;
+    border: 2px dashed rgba(255, 50, 50, 0.8) !important;
+    box-shadow:
+        0 0 0 1px rgba(255, 50, 50, 0.5),
+        inset 0 0 10px rgba(255, 50, 50, 0.3) !important;
+    position: relative;
+}
+
+.cell.tackle-zone:hover {
+    background: rgba(255, 120, 120, 0.5) !important;
+    border-color: rgba(255, 70, 70, 1) !important;
+}
+
+/* Tackle zones should be visible but not override path steps */
+.cell.path-step.tackle-zone {
+    background: #ffd700 !important;
+    border: 4px solid #ff4500 !important;
+}
+
+.cell.path-step {
+    background: #ffd700 !important;
+    border: 4px solid #ff4500 !important;
+    position: relative;
+    box-shadow:
+        0 0 15px rgba(255, 215, 0, 1),
+        inset 0 0 15px rgba(255, 140, 0, 0.8),
+        0 0 0 2px rgba(255, 69, 0, 0.5) !important;
+    animation: pathPulse 1.2s ease-in-out infinite;
+    z-index: 10;
+}
+
+.cell.path-step.valid-move,
+.cell.path-step.reachable-area {
+    background: #ffd700 !important;
+    border: 4px solid #ff4500 !important;
+}
+
+.cell.path-step::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.9), rgba(255, 140, 0, 0.9));
+    border-radius: 2px;
+    z-index: 1;
+}
+
+.cell.path-step::after {
+    content: attr(data-step-number);
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    font-size: 0.85em;
+    font-weight: bold;
+    color: #000;
+    background: #ffffff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ff4500;
+    z-index: 15;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes pathPulse {
+    0%, 100% {
+        box-shadow:
+            0 0 15px rgba(255, 215, 0, 1),
+            inset 0 0 15px rgba(255, 140, 0, 0.8),
+            0 0 0 2px rgba(255, 69, 0, 0.5);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow:
+            0 0 20px rgba(255, 215, 0, 1.2),
+            inset 0 0 20px rgba(255, 140, 0, 1),
+            0 0 0 3px rgba(255, 69, 0, 0.7);
+        transform: scale(1.02);
+    }
+}
+
+.controls-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 10px;
+    min-height: 50px; /* Prevent jumping when movement buttons appear */
+}
+
+.movement-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+}
+
+.movement-btn {
+    padding: 10px 20px;
+    font-size: 1em;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.movement-btn.confirm-btn {
+    background: #4caf50;
+}
+
+.movement-btn.confirm-btn:hover {
+    background: #45a049;
+}
+
+.movement-btn.cancel-btn {
+    background: #f44336;
+}
+
+.movement-btn.cancel-btn:hover {
+    background: #da190b;
+}
+
+.player {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 2px solid #000;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.8em;
+    transition: transform 0.2s;
+}
+
+.player:hover {
+    transform: translate(-50%, -50%) scale(1.1);
+    z-index: 10;
+}
+
+.player.team1 {
+    background: #4a9eff;
+    color: white;
+}
+
+.player.team2 {
+    background: #ff6b6b;
+    color: white;
+}
+
+.player.selected {
+    border: 3px solid #ffd700;
+    box-shadow: 0 0 10px #ffd700;
+}
+
+.player.has-acted {
+    opacity: 0.6;
+    filter: grayscale(100%);
+    background: #888 !important;
+}
+
+.player.knocked-down {
+    transform: translate(-50%, -50%) rotate(90deg);
+    opacity: 0.7;
+    z-index: 5;
+}
+
+.player.knocked-down.team1 {
+    background: #4a9eff;
+    border-color: #2a6bbf;
+}
+
+.player.knocked-down.team2 {
+    background: #ff6b6b;
+    border-color: #cc5555;
+}
+
+.player.has-ball {
+    border-color: #ffd700;
+    box-shadow: 0 0 15px #ffd700;
+}
+
+.ball {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 0.7em;
+    z-index: 15;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #000;
+}
+
+.ball-on-ground {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.2em;
+    z-index: 8;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #ffd700;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+    animation: ballBounce 1s ease-in-out infinite;
+}
+
+@keyframes ballBounce {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+}
+
+.controls {
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex: 1;
+}
+
+.follow-up-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+}
+
+.follow-up-btn {
+    padding: 10px 20px;
+    font-size: 1em;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+    background: #9c27b0;
+}
+
+.follow-up-btn:hover {
+    background: #7b1fa2;
+}
+
+.block-dice-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.dice-label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.dice-btn {
+    padding: 10px 20px;
+    font-size: 1em;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+    background: #ff9800;
+}
+
+.dice-btn:hover:not(:disabled) {
+    background: #f57c00;
+}
+
+.dice-btn:disabled {
+    background: #666;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.action-btn {
+    padding: 10px 20px;
+    font-size: 1em;
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.action-btn:hover:not(:disabled) {
+    background: #ee5a5a;
+}
+
+.action-btn:disabled {
+    background: #666;
+    cursor: not-allowed;
+}
+
+.action-btn.active {
+    background: #ffd700;
+    color: #000;
+}
+
+.status {
+    text-align: center;
+    font-size: 0.85em;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.status-message {
+    padding: 2px 0;
+    opacity: 0.8;
+    transition: opacity 0.3s;
+}
+
+.status-message:last-child {
+    opacity: 1;
+    font-weight: bold;
+}
+
+.touchdown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.touchdown-overlay.show {
+    display: flex;
+}
+
+.touchdown-content {
+    text-align: center;
+    animation: touchdownBounce 0.6s ease-out;
+}
+
+.touchdown-text {
+    font-size: 6em;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow:
+        0 0 10px #ffd700,
+        0 0 20px #ffd700,
+        0 0 30px #ffd700,
+        3px 3px 0px #ff6b6b,
+        6px 6px 0px #4a9eff;
+    margin-bottom: 20px;
+    animation: textPulse 1s ease-in-out infinite;
+    letter-spacing: 0.1em;
+}
+
+.touchdown-team {
+    font-size: 3em;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    margin-bottom: 30px;
+}
+
+.touchdown-emoji {
+    font-size: 4em;
+    margin: 20px 0;
+    animation: emojiSpin 1.5s ease-in-out infinite;
+}
+
+.touchdown-subtitle {
+    font-size: 2em;
+    color: #ffd700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    margin-top: 20px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes touchdownBounce {
+    0% {
+        transform: scale(0.3) rotate(-10deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1) rotate(5deg);
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+@keyframes textPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes emojiSpin {
+    0%, 100% {
+        transform: rotate(0deg) scale(1);
+    }
+    25% {
+        transform: rotate(-10deg) scale(1.1);
+    }
+    75% {
+        transform: rotate(10deg) scale(1.1);
+    }
+}
+
+/* Help Overlay */
+.help-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.help-overlay.show {
+    display: flex;
+}
+
+.help-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 3px solid #ffd700;
+    border-radius: 15px;
+    padding: 30px;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+    animation: touchdownBounce 0.4s ease-out;
+}
+
+.help-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    border-bottom: 2px solid #ffd700;
+    padding-bottom: 15px;
+}
+
+.help-header h2 {
+    color: #ffd700;
+    font-size: 2em;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.help-close {
+    background: #ff6b6b;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 28px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    line-height: 1;
+}
+
+.help-close:hover {
+    background: #ff4444;
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+}
+
+.help-body {
+    color: #fff;
+}
+
+.help-section {
+    margin-bottom: 25px;
+}
+
+.help-section h3 {
+    color: #ffd700;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.help-section p {
+    margin: 8px 0;
+    line-height: 1.6;
+    font-size: 1.1em;
+}
+
+.help-section ul {
+    margin: 10px 0;
+    padding-left: 25px;
+}
+
+.help-section li {
+    margin: 8px 0;
+    line-height: 1.6;
+    font-size: 1.1em;
+}
+
+.help-section strong {
+    color: #ffd700;
+}
+
