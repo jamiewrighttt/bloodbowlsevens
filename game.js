@@ -37,7 +37,42 @@ const gameState = {
     turnTimer: null, // Timer interval ID
     turnTimeRemaining: 120, // Time remaining in seconds (2 minutes = 120 seconds)
     turnTimerActive: false, // Whether the timer is currently running
-    turnEnding: false // Flag to prevent multiple simultaneous turn ends
+    turnEnding: false, // Flag to prevent multiple simultaneous turn ends
+    demoMode: false, // Whether we're in a demo (prevents GFI squares from showing)
+    pendingPlayerToSelect: null // Player to select after movement completes (when switching players)
+};
+
+// Player type configurations
+// Each player type has different stats
+const PLAYER_TYPES = {
+    Lineman: {
+        position: 'Lineman',
+        letter: 'L',
+        movement: 6,
+        strength: 3,
+        agility: 3,
+        armour: 8,
+        skills: []
+    }
+    // Future player types can be added here, e.g.:
+    // Blitzer: {
+    //     position: 'Blitzer',
+    //     letter: 'B',
+    //     movement: 7,
+    //     strength: 3,
+    //     agility: 3,
+    //     armour: 8,
+    //     skills: ['Block']
+    // },
+    // Thrower: {
+    //     position: 'Thrower',
+    //     letter: 'T',
+    //     movement: 6,
+    //     strength: 3,
+    //     agility: 3,
+    //     armour: 8,
+    //     skills: ['Pass']
+    // }
 };
 
 // TEMPORARY: Skip setup for testing - set to false to restore setup
@@ -284,8 +319,17 @@ function placePlayerInSetup(row, col) {
     const cell = gameState.board[row][col].cell;
     const playerElement = document.createElement('div');
     playerElement.className = `player team${unplacedPlayer.team}`;
-    playerElement.textContent = unplacedPlayer.number;
+    playerElement.textContent = unplacedPlayer.positionLetter;
     playerElement.dataset.playerId = unplacedPlayer.id;
+
+    // Show stats on hover
+    playerElement.addEventListener('mouseenter', () => {
+        showPlayerStats(unplacedPlayer);
+    });
+
+    playerElement.addEventListener('mouseleave', () => {
+        hidePlayerStats(unplacedPlayer.team);
+    });
 
     // Add click event listener for selection (only works after setup)
     playerElement.addEventListener('click', (e) => {
@@ -347,8 +391,18 @@ function updatePlayerBoxes() {
     team1Unplaced.forEach(player => {
         const playerElement = document.createElement('div');
         playerElement.className = `player-box-item team1`;
-        playerElement.textContent = player.number;
+        playerElement.textContent = player.positionLetter;
         playerElement.dataset.playerId = player.id;
+
+        // Show stats on hover
+        playerElement.addEventListener('mouseenter', () => {
+            showPlayerStats(player);
+        });
+
+        playerElement.addEventListener('mouseleave', () => {
+            hidePlayerStats(player.team);
+        });
+
         team1Box.appendChild(playerElement);
     });
 
@@ -363,8 +417,18 @@ function updatePlayerBoxes() {
     team2Unplaced.forEach(player => {
         const playerElement = document.createElement('div');
         playerElement.className = `player-box-item team2`;
-        playerElement.textContent = player.number;
+        playerElement.textContent = player.positionLetter;
         playerElement.dataset.playerId = player.id;
+
+        // Show stats on hover
+        playerElement.addEventListener('mouseenter', () => {
+            showPlayerStats(player);
+        });
+
+        playerElement.addEventListener('mouseleave', () => {
+            hidePlayerStats(player.team);
+        });
+
         team2Box.appendChild(playerElement);
     });
 
@@ -555,10 +619,8 @@ function disableAllGameControls() {
     if (team2EndBtn) team2EndBtn.disabled = true;
 
     // Disable action buttons
-    const moveBtn = document.getElementById('btn-move');
     const blockBtn = document.getElementById('btn-block');
     const passBtn = document.getElementById('btn-pass');
-    if (moveBtn) moveBtn.disabled = true;
     if (blockBtn) blockBtn.disabled = true;
     if (passBtn) passBtn.disabled = true;
 
@@ -805,7 +867,12 @@ function scatterBallOnKickoff(originRow, originCol) {
 }
 
 // Create a player
-function createPlayer(team, number, row, col) {
+// playerType: string - the type of player (e.g., 'Lineman', 'Blitzer', etc.)
+//                     defaults to 'Lineman' if not specified
+function createPlayer(team, number, row, col, playerType = 'Lineman') {
+    // Get player type configuration, defaulting to Lineman if type doesn't exist
+    const typeConfig = PLAYER_TYPES[playerType] || PLAYER_TYPES.Lineman;
+
     const player = {
         id: `team${team}-player${number}`,
         team,
@@ -814,10 +881,15 @@ function createPlayer(team, number, row, col) {
         col,
         hasActed: false,
         hasMoved: false,
-        movement: 6,
-        remainingMovement: 6,
-        strength: 3,
-        agility: 3,
+        movement: typeConfig.movement,
+        remainingMovement: typeConfig.movement,
+        strength: typeConfig.strength,
+        agility: typeConfig.agility,
+        armour: typeConfig.armour,
+        position: typeConfig.position,
+        positionLetter: typeConfig.letter, // Letter to display (e.g., 'L' for Lineman)
+        skills: [...typeConfig.skills], // Copy skills array
+        playerType: playerType, // Store the type for reference
         dodgeModifier: 1, // +1 bonus to dodge rolls (reduces target number)
         knockedDown: false,
         hasBall: false,
@@ -829,13 +901,13 @@ function createPlayer(team, number, row, col) {
         const cell = gameState.board[row][col].cell;
         const playerElement = document.createElement('div');
         playerElement.className = `player team${team}`;
-        playerElement.textContent = number;
+        playerElement.textContent = player.positionLetter;
         playerElement.dataset.playerId = player.id;
 
         // Single click to select (only if it's your own team and not in an action mode that targets opponents)
         playerElement.addEventListener('click', (e) => {
-            // In block mode, let the click propagate to the cell to trigger block action
-            if (gameState.actionMode === 'block') {
+            // In block mode or pass mode, let the click propagate to the cell to trigger the action
+            if (gameState.actionMode === 'block' || gameState.actionMode === 'pass') {
                 return; // Don't stop propagation, let cell handle it
             }
             e.stopPropagation();
@@ -843,6 +915,15 @@ function createPlayer(team, number, row, col) {
             if (player.team === gameState.currentTeam) {
                 selectPlayer(player);
             }
+        });
+
+        // Show stats on hover
+        playerElement.addEventListener('mouseenter', () => {
+            showPlayerStats(player);
+        });
+
+        playerElement.addEventListener('mouseleave', () => {
+            hidePlayerStats(player.team);
         });
 
         cell.appendChild(playerElement);
@@ -916,32 +997,52 @@ function selectPlayer(player) {
 
     // Deselect previous player
     if (gameState.selectedPlayer) {
-        const prevCell = gameState.board[gameState.selectedPlayer.row][gameState.selectedPlayer.col].cell;
+        const prevPlayer = gameState.selectedPlayer;
+        const prevCell = gameState.board[prevPlayer.row][prevPlayer.col].cell;
         prevCell.classList.remove('selected');
-        document.querySelector(`[data-player-id="${gameState.selectedPlayer.id}"]`)?.classList.remove('selected');
+        document.querySelector(`[data-player-id="${prevPlayer.id}"]`)?.classList.remove('selected');
 
-        // If switching players during a move action, cancel it
-        if (gameState.actionMode === 'move' && gameState.stoodUpThisMove) {
-            // Revert stand up if player was standing up
-            const { player: prevPlayer, standUpCost } = gameState.stoodUpThisMove;
-            if (prevPlayer === gameState.selectedPlayer) {
-                prevPlayer.knockedDown = true;
-                prevPlayer.remainingMovement += standUpCost;
-                const prevPlayerElement = document.querySelector(`[data-player-id="${prevPlayer.id}"]`);
-                if (prevPlayerElement) {
-                    prevPlayerElement.classList.add('knocked-down');
+        // If switching players during a move action
+        if (gameState.actionMode === 'move') {
+            // If player has already moved (has a movement path) or stood up, complete the action
+            if (gameState.movementPath.length > 0 || gameState.stoodUpThisMove) {
+                // Store the new player to select after movement completes
+                gameState.pendingPlayerToSelect = player;
+                // Execute the movement to complete the action
+                executeMovement();
+                // Note: executeMovement will handle clearing state and deselecting
+                // The new player will be selected after movement completes (handled in executeMovement)
+                return; // Exit early, new player will be selected after movement completes
+            } else {
+                // Player hasn't moved yet, cancel the action
+                // Revert stand up if player was standing up
+                if (gameState.stoodUpThisMove) {
+                    const { player: stoodUpPlayer, standUpCost } = gameState.stoodUpThisMove;
+                    if (stoodUpPlayer === prevPlayer) {
+                        stoodUpPlayer.knockedDown = true;
+                        stoodUpPlayer.remainingMovement += standUpCost;
+                        const prevPlayerElement = document.querySelector(`[data-player-id="${stoodUpPlayer.id}"]`);
+                        if (prevPlayerElement) {
+                            prevPlayerElement.classList.add('knocked-down');
+                        }
+                    }
                 }
             }
+        } else if (gameState.actionMode === 'block') {
+            // Cancel block action when switching players
+            cancelBlock();
         }
 
-        // Clear movement state
-        gameState.movementPath = [];
-        gameState.stoodUpThisMove = null;
-        clearMovementPathDisplay();
-        hideMovementButtons();
-        hideBlockCancelButton();
-        gameState.actionMode = null;
-        updateActionButtons();
+        // Clear movement state (only if not executing movement)
+        if (gameState.actionMode !== 'move' || (gameState.movementPath.length === 0 && !gameState.stoodUpThisMove)) {
+            gameState.movementPath = [];
+            gameState.stoodUpThisMove = null;
+            clearMovementPathDisplay();
+            hideMovementButtons();
+            hideBlockCancelButton();
+            gameState.actionMode = null;
+            updateActionButtons();
+        }
 
         // Clear push selection if switching players
         if (gameState.pendingPushSelection) {
@@ -956,7 +1057,6 @@ function selectPlayer(player) {
     document.querySelector(`[data-player-id="${player.id}"]`)?.classList.add('selected');
 
     // Enable action buttons
-    document.getElementById('btn-move').disabled = false;
     document.getElementById('btn-block').disabled = false;
     document.getElementById('btn-pass').disabled = false;
     updateActionButtons(); // This will handle blitz button state
@@ -982,13 +1082,12 @@ function selectPlayer(player) {
     gameState.movementPath = [];
     clearMovementPathDisplay();
     showValidMoves();
-    showMovementButtons();
     updateActionButtons();
 
     if (gameState.stoodUpThisMove) {
-        updateStatus('Player stood up! You can move additional squares or click Confirm Move to finish.');
+        updateStatus('Player stood up! You can move additional squares or double-click to finish.');
     } else {
-        updateStatus('Click adjacent squares to build your movement path. Click Confirm Move when done.');
+        updateStatus('Click adjacent squares to build your movement path. Double-click to execute movement.');
     }
 }
 
@@ -1017,28 +1116,54 @@ function handleCellDoubleClick(row, col) {
     }
 
     if (gameState.actionMode === 'move' && gameState.selectedPlayer) {
+        // Check if double-clicking on the player's own square when they've stood up - confirm stand up and end movement
+        if (gameState.stoodUpThisMove && cellData.player === gameState.selectedPlayer) {
+            // Player double-clicked on themselves after standing up - confirm and end movement
+            executeMovement();
+            return;
+        }
+
         // Check if double-clicking on a square already in the movement path - execute move immediately
+        // This check should happen first, including for GFI squares that were added via single click
         if (gameState.movementPath.length > 0) {
             const isInPath = gameState.movementPath.some(step => step.row === row && step.col === col);
             if (isInPath) {
-                // Double-clicked on a square in the path - execute movement
+                // Double-clicked on a square in the path (including GFI squares) - execute movement
                 executeMovement();
                 return;
             }
         }
 
-        // Check if double-clicking on a GFI square (even if not in path yet) - add it and execute
+        // Check if double-clicking on a GFI square (that's not in path yet) - add it and execute
+        // This works even if the GFI square isn't adjacent (unlike single-click which requires adjacency)
         if (cellData.cell.classList.contains('gfi-available')) {
-            // This is a GFI square - add it to path if not already there, then execute
-            const isInPath = gameState.movementPath.some(step => step.row === row && step.col === col);
-            if (!isInPath) {
-                // Add the GFI square to the path
-                gameState.movementPath.push({ row, col });
-                updateMovementPathDisplay();
+            const player = gameState.selectedPlayer;
+            // Get current position (starting position or end of current path)
+            let currentRow = player.row;
+            let currentCol = player.col;
+            if (gameState.movementPath.length > 0) {
+                const lastStep = gameState.movementPath[gameState.movementPath.length - 1];
+                currentRow = lastStep.row;
+                currentCol = lastStep.col;
             }
-            // Execute movement (will roll for GFI)
-            executeMovement();
-            return;
+
+            // Check if GFI square is adjacent to current position
+            const rowDiff = Math.abs(row - currentRow);
+            const colDiff = Math.abs(col - currentCol);
+            const isAdjacent = rowDiff <= 1 && colDiff <= 1 && !(rowDiff === 0 && colDiff === 0);
+
+            if (isAdjacent) {
+                // Check if we can add another GFI square (max 2)
+                const currentGfiSquaresInPath = Math.max(0, gameState.movementPath.length - player.remainingMovement);
+                if (currentGfiSquaresInPath < 2) {
+                    // Add the GFI square to the path
+                    gameState.movementPath.push({ row, col });
+                    updateMovementPathDisplay();
+                    // Execute movement (will roll for GFI)
+                    executeMovement();
+                    return;
+                }
+            }
         }
 
         // Check if double-clicking on an opposing player - try blitz first if available
@@ -1126,14 +1251,27 @@ function handleCellDoubleClick(row, col) {
         }
 
         // Double click on a reachable square: calculate path and execute move
-        if (cellData.cell.classList.contains('reachable-area') || cellData.cell.classList.contains('valid-move') || cellData.cell.classList.contains('gfi-available')) {
-            // Calculate path to this destination and execute automatically
+        // Check if square has the class OR if it's actually reachable via pathfinding
+        const hasReachableClass = cellData.cell.classList.contains('reachable-area') ||
+                                  cellData.cell.classList.contains('valid-move') ||
+                                  cellData.cell.classList.contains('gfi-available');
+
+        // Also check if the square is actually reachable (even if class wasn't applied)
+        if (hasReachableClass || (!cellData.player && row >= 0 && row < gameState.boardHeight && col >= 0 && col < gameState.boardWidth)) {
+            // Calculate path to this destination
             const path = calculatePathToDestination(row, col);
             if (path && path.length > 0) {
-                // Append to existing path and execute
-                gameState.movementPath = [...gameState.movementPath, ...path];
-                executeMovement();
-                return;
+                // Check if path is within movement range (including GFI)
+                const player = gameState.selectedPlayer;
+                const remainingMovement = player.remainingMovement - gameState.movementPath.length;
+                const maxPathLength = remainingMovement + 2; // Allow up to 2 GFI squares
+
+                if (path.length <= maxPathLength) {
+                    // Append to existing path and execute
+                    gameState.movementPath = [...gameState.movementPath, ...path];
+                    executeMovement();
+                    return;
+                }
             } else if (path && path.length === 0) {
                 // Destination is already reached, just execute with current path
                 executeMovement();
@@ -1143,6 +1281,40 @@ function handleCellDoubleClick(row, col) {
     }
 
     if (gameState.actionMode === 'blitz' && gameState.selectedPlayer) {
+        // Check if double-clicking on an opponent player
+        if (cellData.player && cellData.player.team !== gameState.selectedPlayer.team && !cellData.player.knockedDown) {
+            const player = gameState.selectedPlayer;
+            // Get current position (starting position or end of current path)
+            let currentRow = player.row;
+            let currentCol = player.col;
+            if (gameState.movementPath.length > 0) {
+                const lastStep = gameState.movementPath[gameState.movementPath.length - 1];
+                currentRow = lastStep.row;
+                currentCol = lastStep.col;
+            }
+
+            // Check if opponent is adjacent to current position (after any movement)
+            const rowDiff = Math.abs(row - currentRow);
+            const colDiff = Math.abs(col - currentCol);
+            if (rowDiff <= 1 && colDiff <= 1 && !(rowDiff === 0 && colDiff === 0)) {
+                // Adjacent opponent - execute movement if there's a path, then block
+                if (gameState.movementPath.length > 0) {
+                    // Store target and execute movement (will block after movement)
+                    gameState.blitzTarget = { row, col };
+                    executeMovement();
+                    return;
+                } else {
+                    // No movement path - block immediately
+                    attemptBlock(row, col);
+                    return;
+                }
+            } else {
+                // Not adjacent - try to find an adjacent square to this opponent and move there, then block
+                handleBlitzTargetClick(row, col, cellData.player);
+                return;
+            }
+        }
+
         // Check if double-clicking on a square already in the movement path - execute move immediately
         if (gameState.movementPath.length > 0) {
             const isInPath = gameState.movementPath.some(step => step.row === row && step.col === col);
@@ -1191,20 +1363,40 @@ function handleCellClick(row, col) {
         // In blitz mode, check if clicking on an opponent player
         if (cellData.player && cellData.player.team !== gameState.selectedPlayer.team && !cellData.player.knockedDown) {
             const player = gameState.selectedPlayer;
-            // Check if opponent is adjacent
-            const rowDiff = Math.abs(row - player.row);
-            const colDiff = Math.abs(col - player.col);
+            // Get current position (starting position or end of current path)
+            let currentRow = player.row;
+            let currentCol = player.col;
+            if (gameState.movementPath.length > 0) {
+                const lastStep = gameState.movementPath[gameState.movementPath.length - 1];
+                currentRow = lastStep.row;
+                currentCol = lastStep.col;
+            }
+
+            // Check if opponent is adjacent to current position (after any movement)
+            const rowDiff = Math.abs(row - currentRow);
+            const colDiff = Math.abs(col - currentCol);
             if (rowDiff <= 1 && colDiff <= 1 && !(rowDiff === 0 && colDiff === 0)) {
-                // Adjacent opponent - block them directly
+                // Adjacent opponent - only block if we've already moved (have a path)
+            // Otherwise, allow movement first
+            if (gameState.movementPath.length > 0) {
+                // Already moved - update target and block this opponent
+                gameState.blitzTarget = { row, col };
                 attemptBlock(row, col);
                 return;
+            } else {
+                // Not moved yet - allow building movement path first
+                // Store this as a potential target but allow movement
+                gameState.blitzTarget = { row, col };
+                // Don't block immediately - allow movement to build path
+                // Player can move away and then click on a different opponent to block
+            }
             } else {
                 // Not adjacent - try to find an adjacent square to this opponent and move there, then block
                 handleBlitzTargetClick(row, col, cellData.player);
                 return;
             }
         }
-        // Otherwise, treat as normal movement path building
+        // Treat as normal movement path building (allows moving away from adjacent opponents)
         addToMovementPath(row, col);
     } else if (gameState.actionMode === 'move' && gameState.selectedPlayer) {
         // Single click: step-by-step path building (only for adjacent squares)
@@ -1557,22 +1749,42 @@ function executeMovement() {
         return;
     }
 
+    // Debug: Log the path to help diagnose issues
+    console.log('Executing movement with path:', gameState.movementPath, 'Player at:', player.row, player.col);
+
+    // Store the original cell position before movement (to clear selection later)
+    const originalCell = gameState.board[player.row][player.col].cell;
+
     // Clear path highlights immediately when move is confirmed
     clearMovementPathDisplay();
+
+    // IMPORTANT: Clear action mode and selected player immediately so other players can be selected
+    // even while the movement animation is playing. Store player reference for use in setTimeout callback.
+    const movingPlayer = gameState.selectedPlayer;
+    const actionModeBeforeMove = gameState.actionMode; // Store for blitz/pass handling
+    gameState.actionMode = null;
+    gameState.selectedPlayer = null;
+
+    // Clear valid moves immediately so UI is ready for new player selection
+    clearValidMoves();
 
     // Track if movement was stopped due to failed ball pickup, failed dodge, or failed GFI
     let movementStopped = false;
 
     // Track current position as we move (starts at player's current position)
-    let currentRow = player.row;
-    let currentCol = player.col;
-    let currentWasInTackleZone = isInTackleZone(currentRow, currentCol, player.team);
+    let currentRow = movingPlayer.row;
+    let currentCol = movingPlayer.col;
+    let currentWasInTackleZone = isInTackleZone(currentRow, currentCol, movingPlayer.team);
 
     // Reset GFI squares used for this movement
     gameState.gfiSquaresUsed = 0;
 
+    // Store path length before starting (in case path gets modified)
+    const pathLength = gameState.movementPath.length;
+    const pathCopy = [...gameState.movementPath]; // Make a copy to avoid issues if path is modified
+
     // Move player step by step along the path
-    gameState.movementPath.forEach((step, index) => {
+    pathCopy.forEach((step, index) => {
         setTimeout(() => {
             // Don't continue if movement was stopped (e.g., failed ball pickup, failed dodge, or failed GFI)
             if (movementStopped) {
@@ -1580,7 +1792,7 @@ function executeMovement() {
             }
 
             // Check if this step requires "Go For It" (beyond remaining movement)
-            const requiresGFI = index >= player.remainingMovement;
+            const requiresGFI = index >= movingPlayer.remainingMovement;
 
             if (requiresGFI) {
                 // Roll d6 for "Go For It" BEFORE moving
@@ -1592,21 +1804,21 @@ function executeMovement() {
                     movementStopped = true;
 
                     // Move player to the square they were trying to reach (they fall there)
-                    movePlayer(player, step.row, step.col);
+                    movePlayer(movingPlayer, step.row, step.col);
 
                     // Knock down the player
-                    knockDownPlayer(player);
+                    knockDownPlayer(movingPlayer);
 
                     // Calculate how many steps were actually completed (including this one)
                     const completedSteps = index + 1;
 
                     // Deduct movement for completed steps (normal movement only, GFI doesn't count)
-                    const normalStepsCompleted = Math.min(completedSteps, player.remainingMovement);
-                    player.remainingMovement -= normalStepsCompleted;
+                    const normalStepsCompleted = Math.min(completedSteps, movingPlayer.remainingMovement);
+                    movingPlayer.remainingMovement -= normalStepsCompleted;
 
                     // Update player state
-                    player.hasMoved = true;
-                    player.hasActed = true;
+                    movingPlayer.hasMoved = true;
+                    movingPlayer.hasActed = true;
 
                     // Clear movement state
                     gameState.movementPath = [];
@@ -1628,29 +1840,29 @@ function executeMovement() {
                     gameState.selectedPlayer = null;
 
                     // Player fell over during GFI - turn ends
-                    updateStatus(`Player ${player.number} attempted "Go For It" but rolled a 1! Player falls over! Turn ends.`);
-                    endTurn(true, `Player ${player.number} failed "Go For It"`); // Automatic turnover
+                    updateStatus(`Player ${movingPlayer.number} attempted "Go For It" but rolled a 1! Player falls over! Turn ends.`);
+                    endTurn(true, `Player ${movingPlayer.number} failed "Go For It"`); // Automatic turnover
                     return;
                 } else {
                     // GFI succeeded - continue movement
-                    updateStatus(`Player ${player.number} "Go For It": Rolled ${gfiRoll} (success).`);
+                    updateStatus(`Player ${movingPlayer.number} "Go For It": Rolled ${gfiRoll} (success).`);
                 }
             }
 
             // Move player to new position
-            movePlayer(player, step.row, step.col);
+            movePlayer(movingPlayer, step.row, step.col);
 
             // Check if destination is in a tackle zone
-            const willBeInTackleZone = isInTackleZone(step.row, step.col, player.team);
+            const willBeInTackleZone = isInTackleZone(step.row, step.col, movingPlayer.team);
 
             // Count how many tackle zones are in the destination square
-            const destinationTackleZones = countTackleZonesInSquare(step.row, step.col, player.team);
+            const destinationTackleZones = countTackleZonesInSquare(step.row, step.col, movingPlayer.team);
 
             // If player was in a tackle zone before moving, they must dodge
             // (regardless of whether destination is also in a tackle zone)
             if (currentWasInTackleZone) {
                 // Player was leaving a tackle zone - must dodge with modifiers
-                const dodgeSuccess = attemptDodge(player, true, destinationTackleZones);
+                const dodgeSuccess = attemptDodge(movingPlayer, true, destinationTackleZones);
 
                 if (!dodgeSuccess) {
                     // Dodge failed - player falls over in the square they moved to
@@ -1660,12 +1872,12 @@ function executeMovement() {
                     const completedSteps = index + 1;
 
                     // Deduct movement for completed steps (only normal movement, not GFI)
-                    const normalStepsCompleted = Math.min(completedSteps, player.remainingMovement);
-                    player.remainingMovement -= normalStepsCompleted;
+                    const normalStepsCompleted = Math.min(completedSteps, movingPlayer.remainingMovement);
+                    movingPlayer.remainingMovement -= normalStepsCompleted;
 
                     // Update player state
-                    player.hasMoved = true;
-                    player.hasActed = true;
+                    movingPlayer.hasMoved = true;
+                    movingPlayer.hasActed = true;
 
                     // Clear movement state
                     gameState.movementPath = [];
@@ -1687,8 +1899,8 @@ function executeMovement() {
                     gameState.selectedPlayer = null;
 
                     // Player fell over during dodge - turn ends
-                    updateStatus(`Player ${player.number} fell over during dodge! Turn ends.`);
-                    endTurn(true, `Player ${player.number} fell over during dodge`); // Automatic turnover
+                    updateStatus(`Player ${movingPlayer.number} fell over during dodge! Turn ends.`);
+                    endTurn(true, `Player ${movingPlayer.number} fell over during dodge`); // Automatic turnover
                     return;
                 }
             }
@@ -1700,15 +1912,15 @@ function executeMovement() {
 
             // Check if ball is on the ground at this position and attempt pickup
             if (gameState.ballPosition &&
-                gameState.ballPosition.row === player.row &&
-                gameState.ballPosition.col === player.col &&
-                !player.knockedDown &&
-                !player.hasBall) {
-                const hadBallBefore = player.hasBall;
-                attemptBallPickup(player);
+                gameState.ballPosition.row === movingPlayer.row &&
+                gameState.ballPosition.col === movingPlayer.col &&
+                !movingPlayer.knockedDown &&
+                !movingPlayer.hasBall) {
+                const hadBallBefore = movingPlayer.hasBall;
+                attemptBallPickup(movingPlayer);
 
                 // If pickup failed, stop movement (endTurn() is called inside attemptBallPickup)
-                if (!player.hasBall && !hadBallBefore) {
+                if (!movingPlayer.hasBall && !hadBallBefore) {
                     movementStopped = true;
                     return;
                 }
@@ -1726,9 +1938,9 @@ function executeMovement() {
 
         // Deduct movement for path (stand up cost was already deducted)
         // Only deduct normal movement squares, not GFI squares
-        const normalMovementUsed = Math.min(gameState.movementPath.length, player.remainingMovement);
-        player.remainingMovement -= normalMovementUsed;
-        player.hasMoved = true;
+        const normalMovementUsed = Math.min(pathLength, movingPlayer.remainingMovement);
+        movingPlayer.remainingMovement -= normalMovementUsed;
+        movingPlayer.hasMoved = true;
 
         // Reset GFI squares used
         gameState.gfiSquaresUsed = 0;
@@ -1741,8 +1953,10 @@ function executeMovement() {
         hideMovementButtons();
 
         // If in blitz mode, transition to block mode after movement
-        if (gameState.actionMode === 'blitz') {
+        if (actionModeBeforeMove === 'blitz') {
             // Don't mark as acted yet - they still need to block
+            // Re-select the player and set to block mode
+            gameState.selectedPlayer = movingPlayer;
             gameState.actionMode = 'block';
 
             // If there's a stored blitz target, automatically block it
@@ -1756,9 +1970,24 @@ function executeMovement() {
             } else {
                 showValidBlocks();
                 updateActionButtons();
-                updateStatus(`Player ${player.number} moved! Now select an adjacent opponent to block.`);
+                updateStatus(`Player ${movingPlayer.number} moved! Now select an adjacent opponent to block.`);
             }
-        } else if (gameState.actionMode === 'pass') {
+
+            // If there's a pending player to select (from switching players), select them now
+            if (gameState.pendingPlayerToSelect) {
+                const playerToSelect = gameState.pendingPlayerToSelect;
+                gameState.pendingPlayerToSelect = null;
+                // Small delay to ensure UI updates
+                setTimeout(() => {
+                    selectPlayer(playerToSelect);
+                }, 50);
+                return; // Exit early, new player selection will update status
+            }
+        } else if (actionModeBeforeMove === 'pass') {
+            // Re-select the player for pass action
+            gameState.selectedPlayer = movingPlayer;
+            gameState.actionMode = 'pass';
+
             // If there's a stored pass target, automatically attempt pass
             if (gameState.passTarget) {
                 const { row: targetRow, col: targetCol } = gameState.passTarget;
@@ -1771,16 +2000,21 @@ function executeMovement() {
                 // Show valid pass targets
                 showValidPassTargets();
                 updateActionButtons();
-                updateStatus(`Player ${player.number} moved! Now select a teammate to pass to.`);
+                updateStatus(`Player ${movingPlayer.number} moved! Now select a teammate to pass to.`);
             }
         } else {
             // Normal move action - mark as acted and complete
             // If this was a move after a blitz block, mark as acted now (blitz is complete)
-            player.hasActed = true;
+            movingPlayer.hasActed = true;
             gameState.actionMode = null;
             updateActionButtons();
 
-            // Clear selected highlighting
+            // Clear selected highlighting from original cell (before player moved)
+            originalCell.classList.remove('selected');
+            // Also clear from player's current cell (in case they moved)
+            const currentCell = gameState.board[movingPlayer.row][movingPlayer.col].cell;
+            currentCell.classList.remove('selected');
+            // Clear from all cells and players (safety check)
             document.querySelectorAll('.cell.selected').forEach(cell => {
                 cell.classList.remove('selected');
             });
@@ -1789,10 +2023,26 @@ function executeMovement() {
             });
             gameState.selectedPlayer = null;
 
+            // Clear valid moves and movement path to reset UI for selecting other players
+            clearValidMoves();
+            clearMovementPathDisplay();
+            hideMovementButtons();
+
+            // If there's a pending player to select (from switching players), select them now
+            if (gameState.pendingPlayerToSelect) {
+                const playerToSelect = gameState.pendingPlayerToSelect;
+                gameState.pendingPlayerToSelect = null;
+                // Small delay to ensure UI updates
+                setTimeout(() => {
+                    selectPlayer(playerToSelect);
+                }, 50);
+                return; // Exit early, new player selection will update status
+            }
+
             if (gameState.movementPath.length === 0) {
-                updateStatus(`Player ${player.number} stood up! (Remaining movement: ${player.remainingMovement})`);
+                updateStatus(`Player ${movingPlayer.number} stood up! (Remaining movement: ${movingPlayer.remainingMovement})`);
             } else {
-                updateStatus(`Player ${player.number} moved successfully! (Remaining movement: ${player.remainingMovement})`);
+                updateStatus(`Player ${movingPlayer.number} moved successfully! (Remaining movement: ${movingPlayer.remainingMovement})`);
             }
         }
     }, gameState.movementPath.length * 200);
@@ -1809,13 +2059,17 @@ function clearMovementPathDisplay() {
 // Show movement buttons
 function showMovementButtons() {
     const movementButtons = document.getElementById('movement-buttons');
-    movementButtons.style.display = 'flex';
+    if (movementButtons) {
+        movementButtons.style.display = 'flex';
+    }
 }
 
 // Hide movement buttons
 function hideMovementButtons() {
     const movementButtons = document.getElementById('movement-buttons');
-    movementButtons.style.display = 'none';
+    if (movementButtons) {
+        movementButtons.style.display = 'none';
+    }
 }
 
 // Show block cancel button
@@ -1965,6 +2219,11 @@ function attemptBlock(row, col) {
     const dice = [];
     for (let i = 0; i < numDice; i++) {
         dice.push(rollDice());
+    }
+
+    // If this is a blitz action, reduce remaining movement by 1 (block costs 1 square of movement)
+    if (gameState.actionMode === 'blitz') {
+        player.remainingMovement = Math.max(0, player.remainingMovement - 1);
     }
 
     // Store the dice rolls and show selection buttons
@@ -2237,7 +2496,6 @@ function processBlockResult(selectedRoll) {
             gameState.movementPath = []; // Clear any previous path
             clearValidMoves();
             showValidMoves();
-            showMovementButtons();
             updateActionButtons();
             updateStatus(`Block complete! You can continue moving with remaining movement (${attacker.remainingMovement}). Click adjacent squares to build your movement path.`);
         } else {
@@ -3015,7 +3273,6 @@ function handlePushSquareSelection(row, col) {
             gameState.movementPath = []; // Clear any previous path
             clearValidMoves();
             showValidMoves();
-            showMovementButtons();
             updateActionButtons();
             updateStatus(`Block complete! You can continue moving with remaining movement (${attacker.remainingMovement}). Click adjacent squares to build your movement path.`);
         } else {
@@ -3061,7 +3318,6 @@ function completeChainPushBlock(attacker, defenderOldRow, defenderOldCol, should
             gameState.movementPath = [];
             clearValidMoves();
             showValidMoves();
-            showMovementButtons();
             updateActionButtons();
             updateStatus(`Block complete! You can continue moving with remaining movement (${attacker.remainingMovement}). Click adjacent squares to build your movement path.`);
         } else {
@@ -3659,7 +3915,11 @@ function hideTouchdownOverlay() {
 // Show help overlay
 function showHelpOverlay() {
     const overlay = document.getElementById('help-overlay');
-    overlay.classList.add('show');
+    if (overlay) {
+        overlay.classList.add('show');
+    } else {
+        console.error('Help overlay element not found!');
+    }
 }
 
 // Hide help overlay
@@ -3966,43 +4226,114 @@ function showValidMoves() {
         // Show tackle zones around defending players
         showTackleZones();
 
-        // Show maximum reachable area (including potential GFI squares)
-        const maxDistance = remainingMovement + (canUseGFI ? 2 - gfiSquaresInPath : 0);
-        showReachableArea(currentRow, currentCol, maxDistance);
+        // Show maximum reachable area (only normal movement, not GFI squares)
+        // GFI squares will be shown separately with yellow borders
+        if (remainingMovement > 0) {
+            showReachableArea(currentRow, currentCol, remainingMovement);
+        }
 
-        if (remainingMovement > 0 || canUseGFI) {
-            // Show adjacent squares that are valid (including diagonals)
-            // Allow showing squares even when remainingMovement is 0 if GFI is available
+        // Show GFI squares (yellow dotted) if GFI is available
+        // Allow GFI squares in movement demo, but skip in other demos
+        if (canUseGFI && (!gameState.demoMode || gameState.demoType === 'movement')) {
             const directions = [
                 [-1, -1], [-1, 0], [-1, 1],  // Top row (diagonal left, up, diagonal right)
                 [0, -1],           [0, 1],   // Middle row (left, right)
                 [1, -1],  [1, 0],  [1, 1]    // Bottom row (diagonal left, down, diagonal right)
             ];
 
-            directions.forEach(([rowOffset, colOffset]) => {
-                const newRow = currentRow + rowOffset;
-                const newCol = currentCol + colOffset;
+            // If remainingMovement is 0, GFI squares are just adjacent squares
+            if (remainingMovement === 0) {
+                directions.forEach(([rowOffset, colOffset]) => {
+                    const newRow = currentRow + rowOffset;
+                    const newCol = currentCol + colOffset;
 
-                // Check if within bounds
-                if (newRow >= 0 && newRow < gameState.boardHeight &&
-                    newCol >= 0 && newCol < gameState.boardWidth) {
-                    const cellData = gameState.board[newRow][newCol];
+                    // Check if within bounds
+                    if (newRow >= 0 && newRow < gameState.boardHeight &&
+                        newCol >= 0 && newCol < gameState.boardWidth) {
+                        const cellData = gameState.board[newRow][newCol];
 
-                    // Check if empty and not already in path
-                    if (!cellData.player &&
-                        !gameState.movementPath.some(step => step.row === newRow && step.col === newCol)) {
-                        // Check if this would be a GFI square
-                        const wouldBeGFI = gameState.movementPath.length >= player.remainingMovement;
-                        if (wouldBeGFI && gfiSquaresInPath < 2) {
-                            // This is a potential GFI square - mark it differently
-                            cellData.cell.classList.add('valid-move', 'gfi-available');
-                        } else if (!wouldBeGFI) {
-                            // Normal movement square
-                            cellData.cell.classList.add('valid-move');
+                        // Check if empty and not already in path
+                        if (!cellData.player &&
+                            !gameState.movementPath.some(step => step.row === newRow && step.col === newCol)) {
+                            // This is a GFI square (adjacent when movement is exhausted)
+                            // Remove reachable-area class if present (to avoid green styling)
+                            cellData.cell.classList.remove('reachable-area');
+                            cellData.cell.classList.add('gfi-available');
+                        }
+                    }
+                });
+            } else {
+                // If there's remaining movement, find squares that would be GFI squares
+                // Use BFS to find all squares at distance = remainingMovement + 1 and remainingMovement + 2
+                const visited = new Set();
+                const queue = [{ row: currentRow, col: currentCol, distance: 0 }];
+                const gfiSquares = [];
+
+                while (queue.length > 0) {
+                    const { row, col, distance } = queue.shift();
+                    const key = `${row},${col}`;
+
+                    if (visited.has(key)) continue;
+                    visited.add(key);
+
+                    // Check if square is valid
+                    if (row >= 0 && row < gameState.boardHeight &&
+                        col >= 0 && col < gameState.boardWidth) {
+                        const cellData = gameState.board[row][col];
+
+                        // Can't move through occupied squares (except starting position)
+                        if (distance > 0 && cellData.player) {
+                            continue;
+                        }
+
+                        // Check if not already in path
+                        const isInPath = gameState.movementPath.some(step => step.row === row && step.col === col);
+                        if (!isInPath && !cellData.player) {
+                            // Mark as GFI square if it's exactly at GFI distance
+                            // First GFI square is at distance = remainingMovement + 1
+                            // Second GFI square is at distance = remainingMovement + 2
+                            if (distance === remainingMovement + 1) {
+                                // First GFI square - always show if available
+                                gfiSquares.push({ row, col });
+                            } else if (distance === remainingMovement + 2 && gfiSquaresInPath < 2) {
+                                // Second GFI square - show if we haven't used 2 GFI squares yet
+                                gfiSquares.push({ row, col });
+                            }
+                        }
+
+                        // Continue exploring if we haven't reached max GFI distance
+                        // Allow exploring up to remainingMovement + 2 (for second GFI square)
+                        const maxDistance = remainingMovement + 2;
+                        if (distance < maxDistance) {
+                            directions.forEach(([rowOffset, colOffset]) => {
+                                const newRow = row + rowOffset;
+                                const newCol = col + colOffset;
+                                const newKey = `${newRow},${newCol}`;
+
+                                if (!visited.has(newKey) &&
+                                    newRow >= 0 && newRow < gameState.boardHeight &&
+                                    newCol >= 0 && newCol < gameState.boardWidth) {
+                                    const newCellData = gameState.board[newRow][newCol];
+                                    const isNewInPath = gameState.movementPath.some(step => step.row === newRow && step.col === newCol);
+                                    if (!newCellData.player && !isNewInPath) {
+                                        queue.push({ row: newRow, col: newCol, distance: distance + 1 });
+                                    }
+                                }
+                            });
                         }
                     }
                 }
-            });
+
+                // Mark all GFI squares with yellow dotted border
+                gfiSquares.forEach(({ row, col }) => {
+                    const cellData = gameState.board[row][col];
+                    if (cellData && !cellData.player) {
+                        // Remove reachable-area class if present (to avoid green styling)
+                        cellData.cell.classList.remove('reachable-area');
+                        cellData.cell.classList.add('gfi-available');
+                    }
+                });
+            }
         }
     } else {
         // Original behavior for other modes
@@ -4020,6 +4351,69 @@ function showValidMoves() {
                 }
             }
         }
+    }
+
+    // Show block dice indicators for adjacent opponent players (when player is activated)
+    // This allows players to see block dice when hovering over opponents, even in move mode
+    if (gameState.selectedPlayer && (gameState.actionMode === 'move' || gameState.actionMode === 'blitz')) {
+        const directions = [
+            [-1, -1], [-1, 0], [-1, 1],  // Top row
+            [0, -1],           [0, 1],   // Middle row (left and right)
+            [1, -1],  [1, 0],  [1, 1]    // Bottom row
+        ];
+
+        // Get current position (starting position or end of current path)
+        let currentRow = player.row;
+        let currentCol = player.col;
+        if (gameState.movementPath.length > 0) {
+            const lastStep = gameState.movementPath[gameState.movementPath.length - 1];
+            currentRow = lastStep.row;
+            currentCol = lastStep.col;
+        }
+
+        directions.forEach(([rowOffset, colOffset]) => {
+            const newRow = currentRow + rowOffset;
+            const newCol = currentCol + colOffset;
+
+            // Check if within bounds
+            if (newRow >= 0 && newRow < gameState.boardHeight &&
+                newCol >= 0 && newCol < gameState.boardWidth) {
+                const cellData = gameState.board[newRow][newCol];
+
+                // Check if there's an opponent player who is not knocked down
+                if (cellData.player && cellData.player.team !== player.team && !cellData.player.knockedDown) {
+                    const defender = cellData.player;
+
+                    // Calculate block dice
+                    const blockInfo = calculateBlockDice(player, defender);
+
+                    // Create or update dice indicator
+                    let diceIndicator = cellData.cell.querySelector('.block-dice-indicator');
+                    if (!diceIndicator) {
+                        diceIndicator = document.createElement('div');
+                        diceIndicator.className = 'block-dice-indicator';
+                        cellData.cell.appendChild(diceIndicator);
+                    }
+
+                    // Update dice indicator text and styling
+                    const diceWord = blockInfo.numDice === 1 ? 'die' : 'dice';
+                    diceIndicator.textContent = `${blockInfo.numDice} ${diceWord}`;
+
+                    // Style based on advantage:
+                    // Red: defender picks (bad for attacker)
+                    // Grey: 1 die (neutral)
+                    // Green: attacker picks (good for attacker)
+                    diceIndicator.classList.remove('dice-good', 'dice-bad', 'dice-neutral');
+                    if (blockInfo.defenderPicks) {
+                        diceIndicator.classList.add('dice-bad'); // Red - bad for attacker
+                    } else if (blockInfo.numDice === 1) {
+                        diceIndicator.classList.add('dice-neutral'); // Grey - neutral
+                    } else {
+                        diceIndicator.classList.add('dice-good'); // Green - good for attacker
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -4091,8 +4485,7 @@ function showValidBlocks() {
                 // Calculate block dice
                 const blockInfo = calculateBlockDice(player, defender);
 
-                // Add valid-move class for highlighting
-                cellData.cell.classList.add('valid-move');
+                // Don't add valid-move class - we only want to show the dice indicator, not green background
 
                 // Add class based on dice advantage
                 // If defender picks (defender has more dice advantage), it's bad for attacker
@@ -4185,6 +4578,10 @@ function clearTackleZones() {
 function clearValidMoves() {
     document.querySelectorAll('.valid-move').forEach(cell => {
         cell.classList.remove('valid-move', 'block-good', 'block-bad', 'gfi-available', 'pass-target');
+    });
+    // Also clear gfi-available from cells that don't have valid-move
+    document.querySelectorAll('.gfi-available').forEach(cell => {
+        cell.classList.remove('gfi-available');
     });
     // Remove dice indicators
     document.querySelectorAll('.block-dice-indicator').forEach(indicator => {
@@ -4525,18 +4922,15 @@ function updateTeamControls() {
 
 // Update action buttons
 function updateActionButtons() {
-    const moveBtn = document.getElementById('btn-move');
     const blockBtn = document.getElementById('btn-block');
     const blitzBtn = document.getElementById('btn-blitz');
     const passBtn = document.getElementById('btn-pass');
 
     // Disable all action buttons during setup phase
     if (gameState.setupPhase) {
-        moveBtn.disabled = true;
         blockBtn.disabled = true;
         blitzBtn.disabled = true;
         passBtn.disabled = true;
-        moveBtn.classList.remove('active');
         blockBtn.classList.remove('active');
         blitzBtn.classList.remove('active');
         passBtn.classList.remove('active');
@@ -4544,26 +4938,22 @@ function updateActionButtons() {
     }
 
     if (gameState.actionMode) {
-        moveBtn.classList.toggle('active', gameState.actionMode === 'move');
         blockBtn.classList.toggle('active', gameState.actionMode === 'block');
         blitzBtn.classList.toggle('active', gameState.actionMode === 'blitz');
         passBtn.classList.toggle('active', gameState.actionMode === 'pass');
     } else {
-        moveBtn.classList.remove('active');
         blockBtn.classList.remove('active');
         blitzBtn.classList.remove('active');
         passBtn.classList.remove('active');
     }
 
     if (!gameState.selectedPlayer) {
-        moveBtn.disabled = true;
         blockBtn.disabled = true;
         blitzBtn.disabled = true;
         passBtn.disabled = true;
     } else {
         const player = gameState.selectedPlayer;
-        // Enable all buttons when player is selected
-        moveBtn.disabled = false;
+        // Enable buttons when player is selected
         blockBtn.disabled = false;
         // Enable blitz only if it hasn't been used this turn (once per team per turn)
         blitzBtn.disabled = gameState.blitzUsed;
@@ -4609,6 +4999,9 @@ function handleFollowUp() {
 
     // Check if the square is still empty (defender has moved)
     if (!gameState.board[defenderOldRow][defenderOldCol].player) {
+        // Follow-up costs 1 square of movement
+        attacker.remainingMovement = Math.max(0, attacker.remainingMovement - 1);
+
         // Move attacker to the defender's old position
         const oldCell = gameState.board[attacker.row][attacker.col];
         const newCell = gameState.board[defenderOldRow][defenderOldCol];
@@ -4626,7 +5019,7 @@ function handleFollowUp() {
         attacker.row = defenderOldRow;
         attacker.col = defenderOldCol;
 
-        updateStatus(`Player ${attacker.number} follows up!`);
+        updateStatus(`Player ${attacker.number} follows up! (Costs 1 square of movement)`);
     } else {
         updateStatus('Cannot follow up - square is occupied.');
     }
@@ -4659,7 +5052,6 @@ function completeBlockAction() {
         hideBlockCancelButton();
         clearValidMoves();
         showValidMoves();
-        showMovementButtons();
         updateActionButtons();
         updateStatus(`Block complete! You can continue moving with remaining movement (${attacker.remainingMovement}). Click adjacent squares to build your movement path.`);
     } else {
@@ -4699,36 +5091,6 @@ function setupEventListeners() {
         }
     });
 
-    document.getElementById('btn-move').addEventListener('click', () => {
-        if (!gameState.selectedPlayer) return;
-        const player = gameState.selectedPlayer;
-
-        // Clear any previous stand up tracking
-        gameState.stoodUpThisMove = null;
-
-        // If knocked down, stand up first (costs half movement)
-        if (player.knockedDown) {
-            const standUpCost = Math.ceil(player.movement / 2);
-            if (!standUpPlayer(player)) {
-                return; // Failed to stand up (not enough movement)
-            }
-            // Track that player stood up during this move action
-            gameState.stoodUpThisMove = { player, standUpCost };
-        }
-
-        gameState.actionMode = 'move';
-        gameState.movementPath = [];
-        clearValidMoves(); // Clear any block indicators or previous valid moves
-        clearMovementPathDisplay();
-        showValidMoves();
-        showMovementButtons();
-        updateActionButtons();
-        if (gameState.stoodUpThisMove) {
-            updateStatus('Player stood up! You can move additional squares or click Confirm Move to finish.');
-        } else {
-            updateStatus('Click adjacent squares to build your movement path. Click Confirm Move when done.');
-        }
-    });
 
     document.getElementById('btn-block').addEventListener('click', () => {
         if (!gameState.selectedPlayer) return;
@@ -4754,7 +5116,6 @@ function setupEventListeners() {
         clearMovementPathDisplay();
         hideMovementButtons();
         showValidBlocks();
-        showBlockCancelButton();
         updateActionButtons();
         updateStatus('Select an adjacent opponent to block.');
     });
@@ -4870,8 +5231,6 @@ function setupEventListeners() {
 
         // Allow movement before pass - show valid moves
         showValidMoves();
-        showMovementButtons();
-
         // Also show valid pass targets
         showValidPassTargets();
 
@@ -4887,13 +5246,19 @@ function setupEventListeners() {
         handleStay();
     });
 
-    document.getElementById('btn-confirm-move').addEventListener('click', () => {
-        executeMovement();
-    });
+    const btnConfirmMove = document.getElementById('btn-confirm-move');
+    if (btnConfirmMove) {
+        btnConfirmMove.addEventListener('click', () => {
+            executeMovement();
+        });
+    }
 
-    document.getElementById('btn-cancel-move').addEventListener('click', () => {
-        cancelMovement();
-    });
+    const btnCancelMove = document.getElementById('btn-cancel-move');
+    if (btnCancelMove) {
+        btnCancelMove.addEventListener('click', () => {
+            cancelMovement();
+        });
+    }
 
     document.getElementById('btn-die-1').addEventListener('click', () => {
         if (gameState.pendingBlockRolls) {
@@ -4914,21 +5279,447 @@ function setupEventListeners() {
     });
 
     // Help overlay
-    document.getElementById('help-link').addEventListener('click', (e) => {
-        e.preventDefault();
-        showHelpOverlay();
-    });
+    const helpLink = document.getElementById('help-link');
+    if (helpLink) {
+        helpLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Help link clicked!');
+            showHelpOverlay();
+        });
+        console.log('Help link event listener attached');
+    } else {
+        console.error('Help link not found!');
+    }
 
-    document.getElementById('help-close').addEventListener('click', () => {
-        hideHelpOverlay();
-    });
+    const helpClose = document.getElementById('help-close');
+    if (helpClose) {
+        helpClose.addEventListener('click', () => {
+            hideHelpOverlay();
+        });
+    }
 
     // Close help overlay when clicking outside
-    document.getElementById('help-overlay').addEventListener('click', (e) => {
-        if (e.target.id === 'help-overlay') {
-            hideHelpOverlay();
+    const helpOverlay = document.getElementById('help-overlay');
+    if (helpOverlay) {
+        helpOverlay.addEventListener('click', (e) => {
+            if (e.target.id === 'help-overlay') {
+                hideHelpOverlay();
+            }
+        });
+    }
+
+    // Demo dropdown
+    const demoLink = document.getElementById('demo-link');
+    const demoMenu = document.getElementById('demo-menu');
+
+    if (demoLink && demoMenu) {
+        demoLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Demo link clicked!');
+            // Toggle dropdown
+            const currentDisplay = window.getComputedStyle(demoMenu).display;
+            console.log('Current display:', currentDisplay);
+            if (currentDisplay === 'none') {
+                demoMenu.style.display = 'block';
+                console.log('Showing demo menu');
+            } else {
+                demoMenu.style.display = 'none';
+                console.log('Hiding demo menu');
+            }
+        });
+        console.log('Demo link event listener attached');
+
+        // Demo option clicks
+        document.querySelectorAll('.demo-option').forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.preventDefault();
+                const demoType = option.dataset.demo;
+                loadDemo(demoType);
+                demoMenu.style.display = 'none';
+            });
+        });
+
+        // Close demo dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.demo-dropdown')) {
+                demoMenu.style.display = 'none';
+            }
+        });
+    } else {
+        console.error('Demo link or menu not found!', { demoLink, demoMenu });
+    }
+}
+
+// Show player stats on hover
+function showPlayerStats(player) {
+    const statsPanel = document.getElementById(`player-stats-team${player.team}`);
+    if (!statsPanel) return;
+
+    // Update position
+    const positionEl = document.getElementById(`player-stats-position-team${player.team}`);
+    if (positionEl) {
+        positionEl.textContent = player.position;
+    }
+
+    // Update stats
+    document.getElementById(`player-stats-movement-team${player.team}`).textContent = player.movement;
+    document.getElementById(`player-stats-strength-team${player.team}`).textContent = player.strength;
+    document.getElementById(`player-stats-agility-team${player.team}`).textContent = player.agility;
+    document.getElementById(`player-stats-armour-team${player.team}`).textContent = player.armour;
+
+    // Update skills
+    const skillsListEl = document.getElementById(`player-stats-skills-team${player.team}`);
+    if (skillsListEl) {
+        if (player.skills && player.skills.length > 0) {
+            skillsListEl.textContent = player.skills.join(', ');
+        } else {
+            skillsListEl.textContent = 'None';
         }
+    }
+
+    // Show the stats panel
+    statsPanel.style.display = 'block';
+}
+
+// Hide player stats
+function hidePlayerStats(team) {
+    const statsPanel = document.getElementById(`player-stats-team${team}`);
+    if (statsPanel) {
+        statsPanel.style.display = 'none';
+    }
+}
+
+// Load a demo setup
+function loadDemo(demoType) {
+    // Set demo mode flag and store demo type
+    gameState.demoMode = true;
+    gameState.demoType = demoType;
+
+    // Clear setup area highlights FIRST, before any other operations
+    document.querySelectorAll('.setup-area').forEach(cell => {
+        cell.classList.remove('setup-area');
     });
+
+    // Reset all game state
+    gameState.players = [];
+    gameState.ballHolder = null;
+    gameState.ballPosition = null;
+    gameState.selectedPlayer = null;
+    gameState.selectedCell = null;
+    gameState.actionMode = null;
+    gameState.movementPath = [];
+    gameState.currentTeam = 1;
+    gameState.blitzUsed = false;
+    gameState.blitzTarget = null;
+    gameState.passUsed = false;
+    gameState.passTarget = null;
+    gameState.setupPhase = false;
+    gameState.pendingBlockRolls = null;
+    gameState.pendingPushSelection = null;
+    gameState.stoodUpThisMove = null;
+    gameState.gfiSquaresUsed = 0;
+    gameState.pendingFollowUp = null;
+    gameState.removedPlayers = [];
+    gameState.turnNumber = 1;
+    gameState.turnsInHalf = 1;
+    gameState.currentHalf = 1;
+    gameState.totalTurns = 0;
+    gameState.scores = { team1: 0, team2: 0 };
+
+    // Clear all ball visuals first (from players and ground)
+    document.querySelectorAll('.ball, .ball-on-ground').forEach(ball => {
+        ball.remove();
+    });
+
+    // Remove has-ball class from all players
+    document.querySelectorAll('.has-ball').forEach(element => {
+        element.classList.remove('has-ball');
+    });
+
+    // Clear all player elements from the DOM (both on board and in reserves)
+    document.querySelectorAll('.player, .player-box-item').forEach(element => {
+        element.remove();
+    });
+
+    // Clear the board
+    for (let row = 0; row < gameState.boardHeight; row++) {
+        for (let col = 0; col < gameState.boardWidth; col++) {
+            const cellData = gameState.board[row][col];
+            if (cellData.player) {
+                cellData.player = null;
+            }
+            // Remove any remaining ball visuals
+            const ball = cellData.cell.querySelector('.ball, .ball-on-ground');
+            if (ball) {
+                ball.remove();
+            }
+        }
+    }
+
+    // Clear player boxes
+    const team1Box = document.getElementById('player-box-content-team1');
+    const team2Box = document.getElementById('player-box-content-team2');
+    if (team1Box) team1Box.innerHTML = '';
+    if (team2Box) team2Box.innerHTML = '';
+
+    // Hide player boxes
+    const team1BoxContainer = document.getElementById('player-box-team1');
+    const team2BoxContainer = document.getElementById('player-box-team2');
+    if (team1BoxContainer) team1BoxContainer.style.display = 'none';
+    if (team2BoxContainer) team2BoxContainer.style.display = 'none';
+
+    // Load the specific demo
+    switch (demoType) {
+        case 'movement':
+            setupMovementDemo();
+            break;
+        case 'blocking':
+            setupBlockingDemo();
+            break;
+        case 'blitzing':
+            setupBlitzingDemo();
+            break;
+        case 'passing':
+            setupPassingDemo();
+            break;
+        default:
+            console.warn('Unknown demo type:', demoType);
+            return;
+    }
+
+    // Clear all UI highlights and buttons
+    clearValidMoves();
+    clearMovementPathDisplay();
+    clearTackleZones();
+    hideFollowUpButtons();
+    hideBlockDiceButtons();
+    hideMovementButtons();
+
+    // Clear setup area highlights and all other cell classes (force remove with !important equivalent)
+    const allCells = document.querySelectorAll('.cell');
+    allCells.forEach(cell => {
+        cell.classList.remove('setup-area', 'valid-move', 'reachable-area', 'gfi-available', 'pass-target', 'block-good', 'block-bad', 'tackle-zone', 'selected', 'path-step', 'gfi-step');
+    });
+
+    // Also specifically target setup-area one more time to be sure
+    document.querySelectorAll('.setup-area').forEach(cell => {
+        cell.classList.remove('setup-area');
+    });
+
+    // Clear any selected highlighting
+    document.querySelectorAll('.cell.selected').forEach(cell => {
+        cell.classList.remove('selected');
+    });
+    document.querySelectorAll('.player.selected').forEach(player => {
+        player.classList.remove('selected');
+    });
+
+    // Clear any path steps
+    document.querySelectorAll('.cell.path-step').forEach(cell => {
+        cell.classList.remove('path-step', 'gfi-step');
+        cell.removeAttribute('data-step-number');
+    });
+
+    // Update UI
+    updateUI();
+    updateActionButtons();
+
+    // For movement demo, automatically select the player and show valid moves
+    if (demoType === 'movement' && gameState.players.length > 0) {
+        const player = gameState.players[0];
+        if (player && player.team === gameState.currentTeam) {
+            selectPlayer(player);
+            // GFI squares should be visible in movement demo
+        }
+    }
+
+    // For blocking demo, automatically select the first blue player and set block mode
+    if (demoType === 'blocking' && gameState.players.length > 0) {
+        const bluePlayer = gameState.players.find(p => p.team === 1);
+        if (bluePlayer) {
+            selectPlayer(bluePlayer);
+            // Set block mode after selection
+            gameState.actionMode = 'block';
+            clearValidMoves();
+            clearMovementPathDisplay();
+            showValidBlocks();
+            updateActionButtons();
+            updateStatus('Select an adjacent opponent to block. Double-click to perform block.');
+            // Remove GFI squares (yellow highlights) from demo
+            setTimeout(() => {
+                document.querySelectorAll('.gfi-available').forEach(cell => {
+                    cell.classList.remove('gfi-available');
+                });
+            }, 0);
+        }
+    }
+
+    // For passing demo, automatically select the player with the ball
+    if (demoType === 'passing' && gameState.players.length > 0) {
+        const playerWithBall = gameState.players.find(p => p.hasBall && p.team === gameState.currentTeam);
+        if (playerWithBall) {
+            selectPlayer(playerWithBall);
+            // Set pass mode after selection
+            gameState.actionMode = 'pass';
+            clearValidMoves();
+            clearMovementPathDisplay();
+            showValidPassTargets();
+            updateActionButtons();
+            updateStatus('Player has the ball! Click "Pass" button or move first, then select a teammate to pass to.');
+        }
+    }
+
+    updateStatus(`Demo loaded: ${demoType.charAt(0).toUpperCase() + demoType.slice(1)}`);
+}
+
+// Demo setup functions (to be implemented)
+function setupMovementDemo() {
+    // Place 1 player from blue team (Team 1) in the middle of the pitch
+    const middleRow = Math.floor(gameState.boardHeight / 2); // Middle row (5)
+    const middleCol = Math.floor(gameState.boardWidth / 2); // Middle column (10)
+
+    const player = createPlayer(1, 1, middleRow, middleCol);
+    gameState.players.push(player);
+
+    // Add a Team 2 player 3 squares away (to the right)
+    const redPlayer = createPlayer(2, 1, middleRow, middleCol + 3);
+    gameState.players.push(redPlayer);
+
+    // Reset player state for new turn
+    player.hasActed = false;
+    player.hasMoved = false;
+    player.remainingMovement = player.movement;
+    player.knockedDown = false;
+
+    redPlayer.hasActed = false;
+    redPlayer.hasMoved = false;
+    redPlayer.remainingMovement = redPlayer.movement;
+    redPlayer.knockedDown = false;
+
+    // Set current team to Team 1 so the player can be selected
+    gameState.currentTeam = 1;
+    gameState.attackingTeam = 1;
+    gameState.defendingTeam = 2;
+    gameState.setupPhase = false;
+
+    // Initialize turn state
+    gameState.turnNumber = 1;
+    gameState.turnsInHalf = 1;
+    gameState.currentHalf = 1;
+}
+
+function setupBlockingDemo() {
+    // Scenario 1: One player of each team next to each other
+    // Top-left area: Blue at (1, 2), Red at (1, 3) - adjacent horizontally
+    gameState.players.push(createPlayer(1, 1, 1, 2)); // Blue
+    gameState.players.push(createPlayer(2, 1, 1, 3)); // Red
+
+    // Scenario 2: 2 blue players next to 1 red
+    // Top-right area: Red at (1, 16), Blue at (0, 16) and (2, 16) - adjacent vertically
+    gameState.players.push(createPlayer(2, 2, 1, 16)); // Red
+    gameState.players.push(createPlayer(1, 2, 0, 16)); // Blue above
+    gameState.players.push(createPlayer(1, 3, 2, 16)); // Blue below
+
+    // Scenario 3: 1 blue next to 2 red
+    // Middle-left area: Blue at (5, 3), Red at (5, 4) and (6, 3) - adjacent horizontally and diagonally
+    gameState.players.push(createPlayer(1, 4, 5, 3)); // Blue
+    gameState.players.push(createPlayer(2, 3, 5, 4)); // Red to the right
+    gameState.players.push(createPlayer(2, 4, 6, 3)); // Red diagonally down-right
+
+    // Scenario 4: 1 red player on the edge of the board, and 3 blue players next to them
+    // Bottom-left corner: Red at (9, 0) - left edge, Blue at (8, 0), (9, 1), (10, 0) - surrounding the red
+    gameState.players.push(createPlayer(2, 5, 9, 0)); // Red on left edge
+    gameState.players.push(createPlayer(1, 5, 8, 0)); // Blue above
+    gameState.players.push(createPlayer(1, 6, 9, 1)); // Blue to the right
+    gameState.players.push(createPlayer(1, 7, 10, 0)); // Blue below
+
+    // Scenario 5: A line of 4 blue players from one of the edges, and a red player next to the third blue player
+    // Right side: 4 blue players in a vertical line, moved 8 squares towards Team 1 endzone (left)
+    // First at bottom (10, 11), then (9, 11), (8, 11), (7, 11)
+    // Red player at (8, 10) - next to the third blue player (counting from bottom: 1st=10, 2nd=9, 3rd=8)
+    gameState.players.push(createPlayer(1, 8, 10, 11)); // Blue 1 (bottom)
+    gameState.players.push(createPlayer(1, 9, 9, 11)); // Blue 2
+    gameState.players.push(createPlayer(1, 10, 8, 11)); // Blue 3 (third from bottom)
+    gameState.players.push(createPlayer(1, 11, 7, 11)); // Blue 4 (top)
+    gameState.players.push(createPlayer(2, 6, 8, 10)); // Red next to third blue player
+
+    // Scenario 6: A blue player, then a red player, then one red in a line, then reds above and below the last red
+    // Bottom-right area: Blue at (9, 13), Red at (9, 14), Red at (9, 15), then Red at (8, 15) above and (10, 15) below
+    gameState.players.push(createPlayer(1, 12, 9, 13)); // Blue
+    gameState.players.push(createPlayer(2, 7, 9, 14)); // Red (first red, in contact with blue)
+    gameState.players.push(createPlayer(2, 8, 9, 15)); // Red (second red, continuing the line)
+    gameState.players.push(createPlayer(2, 9, 8, 15)); // Red above the last red
+    gameState.players.push(createPlayer(2, 10, 10, 15)); // Red below the last red
+
+    // Reset all players' state for new turn
+    gameState.players.forEach(player => {
+        player.hasActed = false;
+        player.hasMoved = false;
+        player.remainingMovement = player.movement;
+        player.knockedDown = false;
+    });
+
+    // Set current team to Team 1 (blue) so they can act
+    gameState.currentTeam = 1;
+    gameState.attackingTeam = 1;
+    gameState.defendingTeam = 2;
+    gameState.setupPhase = false;
+
+    // Initialize turn state
+    gameState.turnNumber = 1;
+    gameState.turnsInHalf = 1;
+    gameState.currentHalf = 1;
+}
+
+function setupBlitzingDemo() {
+    // TODO: Set up board for blitzing demo
+    // Example: Place players in positions to demonstrate blitz action
+}
+
+function setupPassingDemo() {
+    // Place 2 blue players (Team 1) - one in the middle of each half
+    const middleRow = Math.floor(gameState.boardHeight / 2); // Middle row (5)
+
+    // Middle of Team 1's half (left side, columns 0-9)
+    const team1HalfMiddleCol = Math.floor((gameState.boardWidth / 2) / 2); // Column 5
+
+    // Middle of Team 2's half (right side, columns 10-19)
+    const team2HalfMiddleCol = Math.floor(gameState.boardWidth / 2) + Math.floor((gameState.boardWidth / 2) / 2); // Column 15
+
+    // Create player 1 in Team 1's half (with the ball)
+    const player1 = createPlayer(1, 1, middleRow, team1HalfMiddleCol);
+    gameState.players.push(player1);
+
+    // Create player 2 in Team 2's half (without the ball)
+    const player2 = createPlayer(1, 2, middleRow, team2HalfMiddleCol);
+    gameState.players.push(player2);
+
+    // Give the ball to player 1
+    giveBallToPlayer(player1);
+
+    // Reset player state for new turn
+    player1.hasActed = false;
+    player1.hasMoved = false;
+    player1.remainingMovement = player1.movement;
+    player1.knockedDown = false;
+
+    player2.hasActed = false;
+    player2.hasMoved = false;
+    player2.remainingMovement = player2.movement;
+    player2.knockedDown = false;
+
+    // Set current team to Team 1 so the players can be selected
+    gameState.currentTeam = 1;
+    gameState.attackingTeam = 1;
+    gameState.defendingTeam = 2;
+    gameState.setupPhase = false;
+
+    // Initialize turn state
+    gameState.turnNumber = 1;
+    gameState.turnsInHalf = 1;
+    gameState.currentHalf = 1;
 }
 
 // Add dice roll animation

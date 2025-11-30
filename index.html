@@ -10,6 +10,14 @@
     <div class="game-container">
         <header>
             <a href="#" id="help-link" class="help-link">Help</a>
+            <div class="demo-dropdown">
+                <a href="#" id="demo-link" class="demo-link">Demo</a>
+                <div class="demo-menu" id="demo-menu" style="display: none;">
+                    <a href="#" class="demo-option" data-demo="movement">Movement</a>
+                    <a href="#" class="demo-option" data-demo="blocking">Blocking</a>
+                    <a href="#" class="demo-option" data-demo="passing">Passing</a>
+                </div>
+            </div>
             <h1>Blood Bowl Sevens</h1>
         </header>
 
@@ -23,12 +31,24 @@
                     <div class="turn-timer" id="turn-timer-1" style="display: none;">2:00</div>
                 </div>
                 <div class="team-controls">
-                    <div class="dice-result" id="dice-result-team1"></div>
                     <button id="end-turn-team1" class="btn btn-team1">End Turn</button>
                 </div>
                 <div class="player-box" id="player-box-team1" style="display: none;">
-                    <h3>Unplaced Players</h3>
+                    <h3>Reserves</h3>
                     <div class="player-box-content" id="player-box-content-team1"></div>
+                </div>
+                <div class="player-stats" id="player-stats-team1" style="display: none;">
+                    <div class="player-stats-content">
+                        <div class="player-stats-position" id="player-stats-position-team1"></div>
+                        <div class="player-stats-stat">Movement: <span id="player-stats-movement-team1"></span></div>
+                        <div class="player-stats-stat">Strength: <span id="player-stats-strength-team1"></span></div>
+                        <div class="player-stats-stat">Agility: <span id="player-stats-agility-team1"></span></div>
+                        <div class="player-stats-stat">Armour: <span id="player-stats-armour-team1"></span></div>
+                        <div class="player-stats-skills">
+                            <div class="player-stats-skills-label">Skills:</div>
+                            <div class="player-stats-skills-list" id="player-stats-skills-team1"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -45,22 +65,30 @@
                     <div class="turn-timer" id="turn-timer-2" style="display: none;">2:00</div>
                 </div>
                 <div class="team-controls">
-                    <div class="dice-result" id="dice-result-team2"></div>
                     <button id="end-turn-team2" class="btn btn-team2">End Turn</button>
                 </div>
                 <div class="player-box" id="player-box-team2" style="display: none;">
-                    <h3>Unplaced Players</h3>
+                    <h3>Reserves</h3>
                     <div class="player-box-content" id="player-box-content-team2"></div>
+                </div>
+                <div class="player-stats" id="player-stats-team2" style="display: none;">
+                    <div class="player-stats-content">
+                        <div class="player-stats-position" id="player-stats-position-team2"></div>
+                        <div class="player-stats-stat">Movement: <span id="player-stats-movement-team2"></span></div>
+                        <div class="player-stats-stat">Strength: <span id="player-stats-strength-team2"></span></div>
+                        <div class="player-stats-stat">Agility: <span id="player-stats-agility-team2"></span></div>
+                        <div class="player-stats-stat">Armour: <span id="player-stats-armour-team2"></span></div>
+                        <div class="player-stats-skills">
+                            <div class="player-stats-skills-label">Skills:</div>
+                            <div class="player-stats-skills-list" id="player-stats-skills-team2"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="controls">
             <div class="controls-row">
-                <div class="movement-buttons" id="movement-buttons" style="display: none;">
-                    <button id="btn-confirm-move" class="movement-btn confirm-btn">Confirm Move</button>
-                    <button id="btn-cancel-move" class="movement-btn cancel-btn">Cancel</button>
-                </div>
                 <div class="follow-up-buttons" id="follow-up-buttons" style="display: none;">
                     <button id="btn-follow-up" class="follow-up-btn">Follow Up</button>
                     <button id="btn-stay" class="follow-up-btn">Stay</button>
@@ -71,11 +99,7 @@
                     <button id="btn-die-2" class="dice-btn" style="display: none;"><span id="die-2-value"></span></button>
                     <button id="btn-die-3" class="dice-btn" style="display: none;"><span id="die-3-value"></span></button>
                 </div>
-                <div class="block-cancel-button" id="block-cancel-button" style="display: none;">
-                    <button id="btn-cancel-block" class="movement-btn cancel-btn">Cancel Block</button>
-                </div>
                 <div class="action-buttons">
-                    <button id="btn-move" class="action-btn" disabled>Move</button>
                     <button id="btn-block" class="action-btn" disabled>Block</button>
                     <button id="btn-blitz" class="action-btn" disabled>Blitz</button>
                     <button id="btn-pass" class="action-btn" disabled>Pass</button>
@@ -135,7 +159,7 @@
         <div class="touchdown-content">
             <div class="touchdown-text">TURNOVER</div>
             <div class="touchdown-emoji">🔄</div>
-            <div class="touchdown-subtitle" id="turnover-reason"></div>
+            <div id="turnover-reason"></div>
         </div>
     </div>
 
@@ -146,41 +170,49 @@
                 <h2>Blood Bowl Sevens - Rules</h2>
                 <button id="help-close" class="help-close">×</button>
             </div>
-            <div class="help-body">
-                <div class="help-section">
-                    <h3>Objective</h3>
-                    <p>Score a touchdown by moving a player with the ball into the opponent's endzone.</p>
-                </div>
-                <div class="help-section">
-                    <h3>Game Structure</h3>
-                    <p><strong>Coin Toss:</strong> Determines which team attacks first.</p>
-                    <p><strong>Player Placement:</strong> Before kickoff, each team places 7 players in their half (defending team places first, then attacking team).</p>
-                    <p><strong>Kick Off:</strong> Ball is placed and scattered at the start of each half.</p>
-                    <p><strong>Turns:</strong> Each half has 8 turns per team (16 total turns per half). Players have 2 minutes to take their turn. Click "End Turn" when you have completed all player actions for your turn.</p>
-                    <p><strong>Turnovers:</strong> If an action fails (e.g., failed pass, failed catch, failed "Go For It", player knocked down), there is a turnover and your turn ends immediately.</p>
-                </div>
-                <div class="help-section">
-                    <h3>Player Actions</h3>
-                    <p>Each player can perform <strong>1 action per turn</strong>:</p>
-                    <ul>
-                        <li><strong>Move:</strong> Move up to your movement allowance. You can "Go For It" to move up to 2 additional squares - roll D6 for each extra square (1 = fall over, turnover).</li>
-                        <li><strong>Block:</strong> Block an adjacent opponent</li>
-                        <li><strong>Blitz:</strong> Move then block (once per turn)</li>
-                        <li><strong>Pass:</strong> Pass the ball to a teammate (once per turn)</li>
-                    </ul>
-                </div>
-                <div class="help-section">
-                    <h3>Tackle Zones</h3>
-                    <p>When moving, each opposing player in adjacent squares creates a tackle zone. Tackle zones make it harder to pick up the ball (add +1 to target number per tackle zone).</p>
-                </div>
-                <div class="help-section">
-                    <h3>Block Modifiers</h3>
-                    <p>Block dice are modified by assists. Players can assist if they are adjacent to the target and not engaged with other opponents. Each assist adds +1 to block dice.</p>
-                </div>
-                <div class="help-section">
-                    <h3>Pass Modifiers</h3>
-                    <p>Pass distance affects catch difficulty: 0-3 squares (no modifier), 4-6 squares (-1), 7-9 squares (-2), 10+ squares (-3). Maximum pass distance is 13 squares.</p>
-                </div>
+            <div class="help-section">
+                <h3>Kick Off</h3>
+                <p>The game starts with a kickoff. The ball is placed in the middle of the pitch and scatters 1-4 squares in a random direction.</p>
+            </div>
+            <div class="help-section">
+                <h3>Turns</h3>
+                <p>Each half has 8 turns per team (16 turns total per half). The game has 2 halves (32 turns total). Click 'End Turn' when you have completed all player actions for your turn.</p>
+                <p>Players have 2 minutes to take their turn.</p>
+            </div>
+            <div class="help-section">
+                <h3>Player Actions</h3>
+                <p>Each player can do 1 action each turn:</p>
+                <ul>
+                    <li><strong>Move:</strong> Move up to your movement allowance. You can move through tackle zones but must dodge to leave them.</li>
+                    <li><strong>Block:</strong> Block an adjacent opponent. Block dice are modified by assists.</li>
+                    <li><strong>Blitz:</strong> Move and then block an opponent (costs 1 square of movement). Can only be used once per turn.</li>
+                    <li><strong>Pass:</strong> Move and then pass the ball to a teammate. Can only be used once per turn.</li>
+                </ul>
+                <p>If an action fails (e.g., failed pass, failed catch, failed 'Go For It', player knocked down), there is a turnover and the turn ends immediately.</p>
+            </div>
+            <div class="help-section">
+                <h3>Go For It</h3>
+                <p>During movement, you can attempt to move 2 additional squares beyond your movement allowance. For each extra square, roll a D6. On a 1, the player falls over and it's a turnover.</p>
+            </div>
+            <div class="help-section">
+                <h3>Tackle Zones</h3>
+                <p>When moving, squares adjacent to opposing players are in tackle zones. Moving into or through tackle zones requires a dodge roll. Leaving a tackle zone gives a -1 modifier to the dodge roll.</p>
+            </div>
+            <div class="help-section">
+                <h3>Block Modifiers</h3>
+                <p>Block dice are modified by assists. Players can assist if they are adjacent to the target and not engaged with other opponents. Each assist adds +1 to block dice.</p>
+            </div>
+            <div class="help-section">
+                <h3>Pass Modifiers</h3>
+                <p>Pass distance affects the catch roll: 0-3 squares (no modifier), 4-6 squares (-1), 7-9 squares (-2), 10+ squares (-3). Maximum pass distance is 13 squares.</p>
+            </div>
+            <div class="help-section">
+                <h3>Player Placement</h3>
+                <p>Before kickoff, teams place their players in their half of the pitch.</p>
+            </div>
+            <div class="help-section">
+                <h3>Objective</h3>
+                <p>Score a touchdown by moving a player with the ball into the opposition endzone.</p>
             </div>
         </div>
     </div>
